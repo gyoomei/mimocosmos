@@ -213,7 +213,7 @@
   .apod-image[src=""]{display:none}
   .apod-title{font-size:16px;font-weight:600;margin-bottom:6px;color:var(--text)}
   .apod-date{font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em}
-  .apod-explanation{font-size:13px;line-height:1.65;color:var(--muted);max-height:200px;overflow-y:auto;padding-right:8px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+  .apod-explanation{font-size:13px;line-height:1.65;color:var(--muted);max-height:200px;overflow-y:auto;padding-right:8px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent;-webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 24px),transparent 100%);mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 24px),transparent 100%)}
   .apod-explanation::-webkit-scrollbar{width:6px}
   .apod-explanation::-webkit-scrollbar-track{background:transparent}
   .apod-explanation::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
@@ -534,6 +534,6 @@
     <div><a href="https://github.com/gyoomei/mimocosmos" target="_blank" rel="noopener">github.com/gyoomei/mimocosmos</a></div>
   </footer>
 </div>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

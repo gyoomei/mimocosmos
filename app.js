@@ -607,15 +607,14 @@ function init() {
     $('geo-banner').classList.add('hidden');
   };
 
-  // Initial fetch — parallel
-  fetchISS().then(() => {
-    // Narrative composition needs ISS data for accurate region; recompose after first ISS fetch
-    if (weatherState) composeNarrative();
-  });
+  // Initial fetch — parallel, but narrator waits for both ISS and weather
+  let issDone = false, weatherDone = false;
+  const tryCompose = () => { if (issDone && weatherDone) composeNarrative(); };
+  fetchISS().then(() => { issDone = true; tryCompose(); });
   fetchAPOD();
   fetchSky();
   fetchPeople();
-  fetchWeather().then(() => composeNarrative());
+  fetchWeather().then(() => { weatherDone = true; tryCompose(); });
 
   // ISS update every 5s
   setInterval(fetchISS, 5000);
