@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0e27">
+<meta name="description" content="MimoCosmos — live cosmos dashboard. ISS tracker, NASA APOD, space weather, sky events. Powered by Xiaomi MiMo V2.5. Free, no API key, no signup.">
+<meta property="og:title" content="MimoCosmos — Live Cosmos Dashboard">
+<meta property="og:description" content="Track ISS in realtime. Read today's astronomy picture. Forecast aurora and solar storms. Sky events for your location. Powered by Xiaomi MiMo V2.5.">
+<meta property="og:type" content="website">
+<title>MimoCosmos — Live Cosmos Dashboard</title>
+<link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='20' fill='%2306ffa5'/><circle cx='48' cy='20' r='6' fill='%23ff6b35'/></svg>">
+<style>
+  :root{
+    --bg:#05071a; --bg2:#0a0e27; --bg3:#1a0b3d;
+    --panel:rgba(20,18,52,.55); --panel2:rgba(28,24,68,.7);
+    --line:rgba(120,140,255,.18); --line2:rgba(120,140,255,.32);
+    --text:#e8eaff; --muted:#a0a8d8; --dim:#7078a8;
+    --acc:#06ffa5; --acc2:#00d4ff; --acc3:#ff6b35; --acc4:#b794f6;
+    --good:#06ffa5; --warn:#ffb800; --bad:#ff4d6d; --info:#00d4ff;
+    --grad:linear-gradient(135deg,#06ffa5 0%,#00d4ff 40%,#b794f6 80%,#ff6b35 100%);
+    --grad2:linear-gradient(180deg,#05071a 0%,#0a0e27 40%,#1a0b3d 100%);
+    --shadow:0 20px 60px -15px rgba(0,0,0,.8);
+    --glow:0 0 60px rgba(6,255,165,.15);
+  }
+  [data-theme="light"]{
+    --bg:#fff4e1; --bg2:#ffd6e8; --bg3:#ffe9b8;
+    --panel:rgba(255,255,255,.7); --panel2:rgba(255,255,255,.85);
+    --line:rgba(180,80,40,.18); --line2:rgba(180,80,40,.35);
+    --text:#1a0b3d; --muted:#5a3d28; --dim:#8a6d50;
+    --acc:#0e7490; --acc2:#7c3aed; --acc3:#dc2626; --acc4:#9333ea;
+    --good:#15803d; --warn:#b45309; --bad:#b91c1c; --info:#0369a1;
+    --grad:linear-gradient(135deg,#0e7490 0%,#7c3aed 50%,#dc2626 100%);
+    --grad2:linear-gradient(180deg,#ffd6e8 0%,#fff4e1 50%,#ffe9b8 100%);
+    --shadow:0 20px 60px -15px rgba(180,80,40,.25);
+    --glow:0 0 60px rgba(124,58,237,.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{
+    font-family:'Space Grotesk',system-ui,-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    font-size:clamp(14px,1.4vw,15px);line-height:1.55;
+    overflow-x:hidden;-webkit-font-smoothing:antialiased
+  }
+  /* Cosmic background — animated starfield + nebula */
+  .stars,.stars::before,.stars::after{position:fixed;inset:0;pointer-events:none;z-index:0}
+  .stars{background:var(--grad2)}
+  .stars::before{
+    content:"";
+    background-image:
+      radial-gradient(2px 2px at 20% 30%,#fff,transparent),
+      radial-gradient(1px 1px at 70% 80%,#fff,transparent),
+      radial-gradient(2px 2px at 50% 50%,#06ffa5,transparent),
+      radial-gradient(1px 1px at 90% 10%,#fff,transparent),
+      radial-gradient(1px 1px at 10% 70%,#b794f6,transparent),
+      radial-gradient(2px 2px at 35% 90%,#fff,transparent),
+      radial-gradient(1px 1px at 85% 45%,#00d4ff,transparent),
+      radial-gradient(1px 1px at 60% 25%,#fff,transparent),
+      radial-gradient(2px 2px at 25% 60%,#fff,transparent),
+      radial-gradient(1px 1px at 75% 55%,#ff6b35,transparent);
+    background-size:400px 400px;
+    animation:drift 90s linear infinite;
+    opacity:.7
+  }
+  .stars::after{
+    content:"";
+    background:
+      radial-gradient(ellipse 800px 400px at 20% 30%,rgba(6,255,165,.08),transparent),
+      radial-gradient(ellipse 600px 300px at 80% 70%,rgba(183,148,246,.1),transparent),
+      radial-gradient(ellipse 400px 200px at 50% 50%,rgba(255,107,53,.06),transparent);
+    animation:pulse 12s ease-in-out infinite alternate
+  }
+  [data-theme="light"] .stars::before{opacity:.15;filter:brightness(.5)}
+  [data-theme="light"] .stars::after{
+    background:
+      radial-gradient(ellipse 800px 400px at 20% 30%,rgba(255,200,100,.4),transparent),
+      radial-gradient(ellipse 600px 300px at 80% 70%,rgba(255,150,150,.3),transparent)
+  }
+  @keyframes drift{from{transform:translate(0,0)}to{transform:translate(-200px,-200px)}}
+  @keyframes pulse{from{opacity:.5}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.stars::before,.stars::after{animation:none}}
+
+  .wrap{max-width:1280px;margin:0 auto;padding:clamp(16px,3vw,32px);position:relative;z-index:1}
+
+  /* Nav */
+  .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:clamp(20px,3vw,32px);flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:44px;height:44px;border-radius:12px;
+    background:var(--grad);
+    display:grid;place-items:center;
+    box-shadow:var(--glow);position:relative;overflow:hidden
+  }
+  .logo svg{width:28px;height:28px}
+  .brand h1{font-size:clamp(18px,2.2vw,22px);font-weight:700;letter-spacing:-.02em}
+  .brand .tag{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+  .nav-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    padding:8px 14px;border-radius:24px;font:500 13px/1 'Space Grotesk',sans-serif;
+    cursor:pointer;backdrop-filter:blur(12px);transition:all .2s;display:inline-flex;align-items:center;gap:6px
+  }
+  .pill:hover{border-color:var(--line2);transform:translateY(-1px)}
+  .pill.solid{background:var(--grad);border:0;color:#0a0e27;font-weight:600}
+  [data-theme="light"] .pill.solid{color:#fff}
+
+  /* Hero stats */
+  .hero{
+    background:var(--panel);border:1px solid var(--line);border-radius:20px;
+    padding:clamp(20px,3vw,32px);backdrop-filter:blur(20px);
+    box-shadow:var(--shadow);margin-bottom:clamp(16px,2.5vw,24px);
+    position:relative;overflow:hidden
+  }
+  .hero::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 600px 300px at 70% 0%,rgba(6,255,165,.08),transparent);
+    pointer-events:none
+  }
+  .hero-title{font-size:clamp(22px,3vw,30px);font-weight:700;margin-bottom:8px;letter-spacing:-.02em;position:relative}
+  .hero-title .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero-sub{color:var(--muted);font-size:clamp(13px,1.4vw,14px);max-width:64ch;margin-bottom:clamp(16px,2vw,20px);position:relative}
+  .narrative{
+    background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+    padding:clamp(14px,2vw,20px) clamp(14px,2vw,20px) clamp(14px,2vw,20px) clamp(40px,5vw,52px);
+    font-size:clamp(14px,1.5vw,16px);line-height:1.7;
+    color:var(--text);font-style:italic;position:relative;
+    border-left:3px solid var(--acc)
+  }
+  .narrative::before{content:"✨";position:absolute;left:14px;top:14px;font-style:normal;font-size:16px;line-height:1}
+  .narrative.loading{opacity:.6}
+  .narrative-meta{font-size:11px;color:var(--dim);margin-top:10px;display:flex;gap:10px;align-items:center;font-style:normal}
+
+  /* Grid */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:clamp(12px,1.8vw,20px);margin-bottom:clamp(16px,2.5vw,24px);align-items:start}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    padding:clamp(16px,2vw,22px);backdrop-filter:blur(20px);
+    box-shadow:var(--shadow);position:relative;overflow:hidden
+  }
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .card-title{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .card-icon{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:16px}
+
+  .col-iss{grid-column:span 7}
+  .col-people{grid-column:span 5}
+  .col-apod{grid-column:span 7}
+  .col-sky{grid-column:span 5}
+  .col-weather{grid-column:span 12}
+  @media (max-width:900px){
+    .col-iss,.col-people,.col-apod,.col-sky{grid-column:span 12}
+  }
+
+  /* ISS card with earth */
+  .earth-stage{
+    width:100%;aspect-ratio:1.6;border-radius:14px;
+    background:
+      radial-gradient(circle at 30% 30%,#1a3d6e 0%,#0d1e3a 50%,#05071a 100%),
+      radial-gradient(circle at 70% 70%,#2d4d7d 0%,transparent 60%);
+    position:relative;overflow:hidden;
+    border:1px solid var(--line);margin-bottom:14px
+  }
+  .earth-svg{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:62%;aspect-ratio:1
+  }
+
+  .iss-marker{
+    position:absolute;width:12px;height:12px;border-radius:50%;
+    background:var(--acc);box-shadow:0 0 12px var(--acc),0 0 24px var(--acc);
+    transition:left 1.5s ease,top 1.5s ease;z-index:2
+  }
+  .iss-marker::after{
+    content:"ISS";position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+    font-size:9px;font-weight:700;color:var(--acc);letter-spacing:.1em;
+    background:rgba(5,7,26,.85);padding:2px 6px;border-radius:4px;border:1px solid var(--acc);
+    white-space:nowrap
+  }
+  .iss-trail{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--acc);opacity:.4;pointer-events:none;z-index:1}
+
+  .iss-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media (max-width:520px){.iss-stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px
+  }
+  .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;font-weight:600}
+  .stat-value{font:600 clamp(14px,1.6vw,17px)/1.2 'JetBrains Mono','Space Grotesk',monospace;color:var(--text)}
+  .stat-unit{font-size:10px;color:var(--dim);margin-left:3px;font-weight:400}
+
+  /* People card */
+  .people-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto}
+  .person{
+    display:flex;align-items:center;gap:12px;padding:10px 12px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:10px
+  }
+  .person-avatar{
+    width:32px;height:32px;border-radius:50%;flex-shrink:0;
+    background:var(--grad);display:grid;place-items:center;
+    font:700 13px 'Space Grotesk';color:#0a0e27
+  }
+  [data-theme="light"] .person-avatar{color:#fff}
+  .person-name{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .person-craft{font-size:10px;color:var(--muted);background:rgba(6,255,165,.1);padding:3px 8px;border-radius:12px;border:1px solid rgba(6,255,165,.3);font-weight:600}
+  [data-theme="light"] .person-craft{background:rgba(14,116,144,.12);border-color:rgba(14,116,144,.4);color:#0e7490}
+
+  /* APOD */
+  .apod-image{
+    width:100%;aspect-ratio:16/10;border-radius:12px;object-fit:cover;
+    border:1px solid var(--line);background:var(--panel2);margin-bottom:12px;
+    display:block
+  }
+  .apod-image[src=""]{display:none}
+  .apod-title{font-size:16px;font-weight:600;margin-bottom:6px;color:var(--text)}
+  .apod-date{font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em}
+  .apod-explanation{font-size:13px;line-height:1.65;color:var(--muted);max-height:200px;overflow-y:auto;padding-right:8px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+  .apod-explanation::-webkit-scrollbar{width:6px}
+  .apod-explanation::-webkit-scrollbar-track{background:transparent}
+  .apod-explanation::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+
+  /* Sky events */
+  .sky-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .sky-row:last-child{border-bottom:0}
+  .sky-row-label{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .sky-row-icon{width:24px;height:24px;display:grid;place-items:center;font-size:14px}
+  .sky-row-value{font:600 13px 'JetBrains Mono',monospace;color:var(--text)}
+  .moon-phase{display:flex;align-items:center;gap:14px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+  .moon-vis{
+    width:54px;height:54px;border-radius:50%;flex-shrink:0;position:relative;
+    background:radial-gradient(circle at 30% 30%,#e8eaff 0%,#a0a8d8 60%,#5a5d8a 100%);
+    box-shadow:0 0 30px rgba(232,234,255,.2),inset -8px -4px 18px rgba(0,0,0,.5)
+  }
+  .moon-shadow{position:absolute;inset:0;border-radius:50%;background:rgba(5,7,26,.85)}
+  .moon-meta-name{font-size:14px;font-weight:600;margin-bottom:2px}
+  .moon-meta-sub{font-size:11px;color:var(--muted)}
+
+  /* Space weather */
+  .weather-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media (max-width:780px){.weather-grid{grid-template-columns:repeat(2,1fr)}}
+  .gauge{
+    background:var(--panel2);border:1px solid var(--line);border-radius:14px;
+    padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    text-align:center;position:relative;cursor:help
+  }
+  .gauge::after{
+    content:"ⓘ";position:absolute;top:8px;right:10px;font-size:11px;color:var(--dim);
+    transition:color .2s
+  }
+  .gauge:hover::after{color:var(--acc)}
+  .gauge-ring{
+    width:90px;height:90px;border-radius:50%;
+    background:conic-gradient(var(--acc) calc(var(--p,0)*1%),var(--line) 0);
+    display:grid;place-items:center;position:relative
+  }
+  .gauge-ring::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--bg2)}
+  .gauge-value{position:relative;font:700 18px 'JetBrains Mono';color:var(--text)}
+  .gauge-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .gauge-status{font-size:11px;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:10px;text-transform:uppercase}
+  .st-quiet{background:rgba(6,255,165,.12);color:var(--acc);border:1px solid rgba(6,255,165,.3)}
+  .st-active{background:rgba(255,184,0,.12);color:var(--warn);border:1px solid rgba(255,184,0,.3)}
+  .st-storm{background:rgba(255,77,109,.12);color:var(--bad);border:1px solid rgba(255,77,109,.3)}
+  [data-theme="light"] .st-quiet{background:rgba(21,128,61,.1);color:#15803d;border-color:rgba(21,128,61,.4)}
+  [data-theme="light"] .st-active{background:rgba(180,83,9,.1);color:#b45309;border-color:rgba(180,83,9,.4)}
+  [data-theme="light"] .st-storm{background:rgba(185,28,28,.1);color:#b91c1c;border-color:rgba(185,28,28,.4)}
+
+  /* Loading */
+  .skeleton{
+    background:linear-gradient(90deg,var(--panel) 0%,var(--panel2) 50%,var(--panel) 100%);
+    background-size:200% 100%;animation:shimmer 1.5s infinite;
+    border-radius:8px;color:transparent
+  }
+  @keyframes shimmer{to{background-position:-200% 0}}
+
+  /* Footer */
+  .footer{margin-top:clamp(20px,3vw,32px);padding:20px 0;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .footer a{color:var(--acc);text-decoration:none;font-weight:600}
+  .footer a:hover{text-decoration:underline}
+
+  /* Geo prompt */
+  .geo-banner{
+    background:var(--panel);border:1px solid var(--line2);border-radius:14px;
+    padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;
+    backdrop-filter:blur(12px);flex-wrap:wrap
+  }
+  .geo-banner.hidden{display:none}
+  .geo-text{flex:1;font-size:13px;min-width:200px}
+  .geo-text strong{color:var(--acc)}
+  .geo-actions{display:flex;gap:8px}
+
+  /* Error */
+  .err{
+    background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.3);
+    border-radius:10px;padding:10px 14px;font-size:12px;color:var(--bad);margin-top:10px
+  }
+  [data-theme="light"] .err{background:rgba(185,28,28,.08);border-color:rgba(185,28,28,.4);color:#b91c1c}
+
+  button:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="9" fill="#05071a"/>
+          <ellipse cx="16" cy="16" rx="14" ry="4.5" stroke="#05071a" stroke-width="2" transform="rotate(-25 16 16)"/>
+          <circle cx="24" cy="9" r="2.5" fill="#05071a"/>
+        </svg>
+      </div>
+      <div>
+        <h1>MimoCosmos</h1>
+        <div class="tag" data-i18n="tag">Live Cosmos · MiMo V2.5</div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="pill" id="lang-toggle" title="Switch language">🌐 <span id="lang-label">EN</span></button>
+      <button class="pill" id="theme-toggle" title="Toggle theme">🌙 <span id="theme-label" data-i18n="theme-dark">Dark</span></button>
+      <a class="pill" href="https://github.com/gyoomei/mimocosmos" target="_blank" rel="noopener">⭐ GitHub</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h2 class="hero-title"><span class="grad" data-i18n="hero-title">Live Cosmos Dashboard</span></h2>
+    <p class="hero-sub" data-i18n="hero-sub">Five agents working in parallel. The Tracker streams ISS coordinates every 5 seconds. The Observer pulls today's NASA picture. The Forecaster reads geomagnetic storms and solar flares. The Sky agent computes sunrise, sunset, and moon phase for your location. The Narrator weaves it all into a single line — what is happening above you, right now.</p>
+    <div class="narrative" id="narrative">
+      <span class="skeleton" data-i18n="narrative-loading">Composing the cosmos for you…</span>
+      <div class="narrative-meta"><span id="narrative-time"></span><span>·</span><span data-i18n="narrative-by">Narrator Agent · Powered by MiMo V2.5</span></div>
+    </div>
+  </section>
+
+  <div class="geo-banner" id="geo-banner">
+    <span style="font-size:18px">📍</span>
+    <div class="geo-text">
+      <strong data-i18n="geo-title">Sharper sky for your location?</strong><br>
+      <span data-i18n="geo-sub">Allow geolocation for accurate sunrise, sunset, and ISS overhead pass. Currently using Jakarta as default.</span>
+    </div>
+    <div class="geo-actions">
+      <button class="pill solid" id="geo-allow" data-i18n="geo-allow">Allow</button>
+      <button class="pill" id="geo-skip" data-i18n="geo-skip">Skip</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <article class="card col-iss">
+      <header class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-icon" style="background:rgba(6,255,165,.12);color:var(--acc)">🛰</span>
+          <span class="card-title" data-i18n="iss-title">ISS Live · Tracker Agent</span>
+        </div>
+        <span class="pill" id="iss-status" style="font-size:11px;padding:5px 10px">···</span>
+      </header>
+      <div class="earth-stage" id="earth-stage">
+        <svg class="earth-svg" viewBox="-100 -100 200 200" aria-hidden="true">
+          <defs>
+            <radialGradient id="oceanGrad" cx="35%" cy="35%" r="70%">
+              <stop offset="0%" stop-color="#3a82c4"/>
+              <stop offset="40%" stop-color="#1a4d7a"/>
+              <stop offset="80%" stop-color="#0d2d5a"/>
+              <stop offset="100%" stop-color="#051428"/>
+            </radialGradient>
+            <radialGradient id="atmoGrad" cx="50%" cy="50%" r="55%">
+              <stop offset="85%" stop-color="rgba(6,255,165,0)"/>
+              <stop offset="92%" stop-color="rgba(6,255,165,0.35)"/>
+              <stop offset="100%" stop-color="rgba(6,255,165,0)"/>
+            </radialGradient>
+            <clipPath id="globeClip"><circle cx="0" cy="0" r="92"/></clipPath>
+          </defs>
+          <!-- Atmosphere glow -->
+          <circle cx="0" cy="0" r="100" fill="url(#atmoGrad)"/>
+          <!-- Ocean sphere -->
+          <circle cx="0" cy="0" r="92" fill="url(#oceanGrad)"/>
+          <!-- Continent silhouettes — equirectangular projection on a 200x200 box (lon -180..180 → x -90..90, lat -90..90 → y 90..-90) -->
+          <g clip-path="url(#globeClip)" fill="rgba(46,160,90,.6)" stroke="rgba(6,255,165,.3)" stroke-width="0.5" stroke-linejoin="round">
+            <!-- North America -->
+            <path d="M -82,-50 L -68,-58 L -50,-55 L -38,-48 L -30,-38 L -32,-26 L -38,-20 L -45,-12 L -55,-8 L -64,-12 L -72,-20 L -80,-32 L -84,-44 Z"/>
+            <!-- Greenland -->
+            <path d="M -28,-58 L -18,-62 L -12,-56 L -16,-48 L -24,-46 L -28,-52 Z"/>
+            <!-- Central America -->
+            <path d="M -45,-12 L -38,-8 L -34,-2 L -38,2 L -42,-2 Z"/>
+            <!-- South America -->
+            <path d="M -36,-2 L -28,-4 L -22,2 L -18,12 L -22,28 L -28,42 L -34,52 L -40,46 L -42,32 L -42,18 L -40,8 Z"/>
+            <!-- Africa -->
+            <path d="M 0,-22 L 12,-26 L 22,-22 L 30,-12 L 32,-2 L 30,12 L 26,22 L 18,30 L 10,28 L 4,22 L 0,12 L -2,2 L -2,-12 Z"/>
+            <!-- Europe -->
+            <path d="M -2,-44 L 8,-48 L 22,-46 L 28,-42 L 24,-36 L 16,-32 L 8,-30 L 0,-32 L -4,-38 Z"/>
+            <!-- Middle East -->
+            <path d="M 22,-32 L 30,-30 L 32,-22 L 26,-18 L 22,-22 Z"/>
+            <!-- Russia / North Asia -->
+            <path d="M 28,-58 L 50,-62 L 72,-60 L 84,-54 L 82,-46 L 70,-40 L 56,-38 L 42,-40 L 30,-44 L 28,-50 Z"/>
+            <!-- China / Mongolia -->
+            <path d="M 50,-40 L 70,-38 L 78,-30 L 76,-22 L 64,-18 L 54,-22 L 50,-30 Z"/>
+            <!-- India -->
+            <path d="M 38,-18 L 46,-16 L 48,-8 L 44,0 L 38,-4 L 36,-12 Z"/>
+            <!-- SE Asia + Indonesia -->
+            <path d="M 52,-14 L 60,-12 L 64,-6 L 60,0 L 54,-4 Z"/>
+            <path d="M 58,4 L 70,2 L 76,8 L 72,12 L 64,12 L 58,8 Z"/>
+            <!-- Japan -->
+            <path d="M 78,-32 L 84,-30 L 84,-22 L 80,-20 L 78,-26 Z"/>
+            <!-- Australia -->
+            <path d="M 60,18 L 78,16 L 84,24 L 80,32 L 68,36 L 58,30 L 56,22 Z"/>
+            <!-- New Zealand -->
+            <path d="M 88,32 L 92,34 L 92,40 L 88,40 Z"/>
+            <!-- Antarctica band -->
+            <path d="M -92,62 L -60,58 L -20,60 L 20,58 L 60,60 L 92,62 L 92,80 L -92,80 Z" fill="rgba(220,235,255,.4)"/>
+          </g>
+          <!-- Latitude lines for orbital context -->
+          <g stroke="rgba(255,255,255,.1)" stroke-width="0.3" fill="none">
+            <ellipse cx="0" cy="0" rx="92" ry="14"/>
+            <ellipse cx="0" cy="0" rx="92" ry="50"/>
+            <ellipse cx="0" cy="0" rx="14" ry="92"/>
+            <ellipse cx="0" cy="0" rx="50" ry="92"/>
+          </g>
+          <!-- Inner shadow for spherical depth -->
+          <circle cx="0" cy="0" r="92" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="3" style="filter:blur(2px)"/>
+        </svg>
+        <div class="iss-marker" id="iss-marker" style="left:50%;top:50%"></div>
+      </div>
+      <div class="iss-stats">
+        <div class="stat"><div class="stat-label" data-i18n="iss-lat">Latitude</div><div class="stat-value" id="iss-lat">—</div></div>
+        <div class="stat"><div class="stat-label" data-i18n="iss-lon">Longitude</div><div class="stat-value" id="iss-lon">—</div></div>
+        <div class="stat"><div class="stat-label" data-i18n="iss-alt">Altitude</div><div class="stat-value" id="iss-alt">—<span class="stat-unit">km</span></div></div>
+        <div class="stat"><div class="stat-label" data-i18n="iss-vel">Velocity</div><div class="stat-value" id="iss-vel">—<span class="stat-unit">km/h</span></div></div>
+      </div>
+    </article>
+
+    <article class="card col-people">
+      <header class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-icon" style="background:rgba(0,212,255,.12);color:var(--acc2)">👨‍🚀</span>
+          <span class="card-title" data-i18n="people-title">Humans in Space</span>
+        </div>
+        <span class="pill" id="people-count" style="font-size:11px;padding:5px 10px">—</span>
+      </header>
+      <div class="people-list" id="people-list">
+        <div class="skeleton" style="height:52px;border-radius:10px"></div>
+        <div class="skeleton" style="height:52px;border-radius:10px"></div>
+        <div class="skeleton" style="height:52px;border-radius:10px"></div>
+      </div>
+    </article>
+
+    <article class="card col-apod">
+      <header class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-icon" style="background:rgba(183,148,246,.15);color:var(--acc4)">🔭</span>
+          <span class="card-title" data-i18n="apod-title">APOD · Observer Agent</span>
+        </div>
+        <span class="pill" id="apod-date-pill" style="font-size:11px;padding:5px 10px">—</span>
+      </header>
+      <div id="apod-body">
+        <div class="skeleton apod-image"></div>
+        <div class="skeleton" style="height:18px;width:60%;margin-bottom:8px"></div>
+        <div class="skeleton" style="height:60px"></div>
+      </div>
+    </article>
+
+    <article class="card col-sky">
+      <header class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-icon" style="background:rgba(255,107,53,.12);color:var(--acc3)">🌅</span>
+          <span class="card-title" data-i18n="sky-title">Sky Events · Sky Agent</span>
+        </div>
+        <span class="pill" id="sky-loc" style="font-size:11px;padding:5px 10px">—</span>
+      </header>
+      <div class="moon-phase">
+        <div class="moon-vis"><div class="moon-shadow" id="moon-shadow" style="clip-path:inset(0 0 0 50%)"></div></div>
+        <div>
+          <div class="moon-meta-name" id="moon-name" data-i18n="moon-loading">Calculating moon…</div>
+          <div class="moon-meta-sub" id="moon-illum">—</div>
+        </div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">🌅</span><span data-i18n="sky-sunrise">Sunrise</span></div>
+        <div class="sky-row-value" id="sky-sunrise">—</div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">🌇</span><span data-i18n="sky-sunset">Sunset</span></div>
+        <div class="sky-row-value" id="sky-sunset">—</div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">✨</span><span data-i18n="sky-golden">Golden Hour</span></div>
+        <div class="sky-row-value" id="sky-golden">—</div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">🌌</span><span data-i18n="sky-daylen">Day Length</span></div>
+        <div class="sky-row-value" id="sky-daylen">—</div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">🌃</span><span data-i18n="sky-twilight-start">Astro Twilight Begin</span></div>
+        <div class="sky-row-value" id="sky-twilight-start">—</div>
+      </div>
+      <div class="sky-row">
+        <div class="sky-row-label"><span class="sky-row-icon">☀️</span><span data-i18n="sky-noon">Solar Noon</span></div>
+        <div class="sky-row-value" id="sky-noon">—</div>
+      </div>
+    </article>
+
+    <article class="card col-weather">
+      <header class="card-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-icon" style="background:rgba(255,184,0,.12);color:var(--warn)">⚡</span>
+          <span class="card-title" data-i18n="weather-title">Space Weather · Forecaster Agent</span>
+        </div>
+        <span class="pill" id="weather-status" style="font-size:11px;padding:5px 10px">···</span>
+      </header>
+      <div class="weather-grid">
+        <div class="gauge" title="Kp index 0-9: planetary geomagnetic disturbance. ≥5 = aurora visible at lower latitudes.">
+          <div class="gauge-ring" id="kp-ring" style="--p:0"><div class="gauge-value" id="kp-val">—</div></div>
+          <div class="gauge-label" data-i18n="weather-kp">Kp Index</div>
+          <div class="gauge-status st-quiet" id="kp-status" data-i18n="quiet">QUIET</div>
+        </div>
+        <div class="gauge" title="3-day Kp forecast peak. Higher = aurora more likely.">
+          <div class="gauge-ring" id="aurora-ring" style="--p:0"><div class="gauge-value" id="aurora-val">—</div></div>
+          <div class="gauge-label" data-i18n="weather-aurora">Aurora 3-day</div>
+          <div class="gauge-status st-quiet" id="aurora-status" data-i18n="weather-low">LOW</div>
+        </div>
+        <div class="gauge" title="Solar flare X-ray class. A/B = quiet, C = minor, M = strong, X = extreme.">
+          <div class="gauge-ring" id="flare-ring" style="--p:0"><div class="gauge-value" id="flare-val">—</div></div>
+          <div class="gauge-label" data-i18n="weather-flare">Solar Flare</div>
+          <div class="gauge-status st-quiet" id="flare-status" data-i18n="weather-class">CLASS</div>
+        </div>
+        <div class="gauge" title="Geomagnetic storm scale G0-G5. G0 = none, G5 = extreme.">
+          <div class="gauge-ring" id="geo-ring" style="--p:0"><div class="gauge-value" id="geo-val">G0</div></div>
+          <div class="gauge-label" data-i18n="weather-storm">Geomag Storm</div>
+          <div class="gauge-status st-quiet" id="geo-status" data-i18n="weather-none">NONE</div>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <footer class="footer">
+    <div data-i18n="footer-by">Built with ❤ on MiMo V2.5 — by <a href="https://github.com/gyoomei" target="_blank" rel="noopener">@gyoomei</a></div>
+    <div><a href="https://github.com/gyoomei/mimocosmos" target="_blank" rel="noopener">github.com/gyoomei/mimocosmos</a></div>
+  </footer>
+</div>
+<script src="app.js?v=7"></script>
+</body>
+</html>
