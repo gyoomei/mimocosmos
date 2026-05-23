@@ -131,11 +131,10 @@ function fmtInt(n) {
   return Math.round(n).toLocaleString(lang === 'id' ? 'id-ID' : 'en-US');
 }
 function regionFromLatLon(lat, lon) {
-  // Rough biome / hemisphere mapping for narrative flair
+  // Rough biome / hemisphere mapping for narrative flair (no leading article — narratives add their own)
   const ns = lat > 0 ? 'N' : 'S';
-  const ew = lon > 0 ? 'E' : 'W';
-  const aLat = Math.abs(lat), aLon = Math.abs(lon);
-  if (aLat < 23.5) return lang === 'id' ? 'kawasan tropis' : 'the tropics';
+  const aLat = Math.abs(lat);
+  if (aLat < 23.5) return lang === 'id' ? 'kawasan tropis' : 'tropics';
   if (aLat < 50) return lang === 'id' ? `lintang sedang ${ns}` : `mid-latitudes ${ns}`;
   if (aLat < 66) return lang === 'id' ? `sub-kutub ${ns}` : `subpolar ${ns}`;
   return lang === 'id' ? `lingkar kutub ${ns}` : `polar circle ${ns}`;
